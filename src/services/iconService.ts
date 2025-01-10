@@ -12,6 +12,36 @@ export class IconService {
     }
   };
 
+  // 图标选择器列表，按优先级排序
+  private readonly iconSelectors = [
+    // 标准图标
+    'link[rel="icon"]',
+    'link[rel="shortcut icon"]',
+    // 苹果设备图标
+    'link[rel="apple-touch-icon"]',
+    'link[rel="apple-touch-icon-precomposed"]',
+    // Safari 特定图标
+    'link[rel="mask-icon"]',
+    // 社交媒体图标
+    'meta[property="og:image"]',
+    'meta[name="twitter:image"]',
+    // 其他常见图标
+    'link[rel="fluid-icon"]',
+    'link[rel="image_src"]'
+  ];
+
+  // 常见的图标路径
+  private readonly commonIconPaths = [
+    '/favicon.ico',
+    '/favicon.png',
+    '/favicon-32x32.png',
+    '/favicon-16x16.png',
+    '/apple-touch-icon.png',
+    '/apple-touch-icon-precomposed.png',
+    '/icon.png',
+    '/icon.ico'
+  ];
+
   constructor() {
     this.websiteDir = path.join(process.cwd(), 'website');
     if (!fs.existsSync(this.websiteDir)) {
@@ -34,47 +64,39 @@ export class IconService {
         };
       }
 
-      // 1. 首先尝试从 HTML 中获取
-      const iconUrl = await this.findIconUrl(url);
-      if (iconUrl) {
-        try {
-          const response = await axios.get(iconUrl, {
-            ...this.axiosConfig,
-            responseType: 'arraybuffer'
-          });
-
-          fs.writeFileSync(iconPath, response.data);
-          return {
-            buffer: Buffer.from(response.data),
-            contentType: response.headers['content-type'] || 'image/x-icon'
-          };
-        } catch (error) {
-          console.log('从HTML获取图标失败，尝试其他方式');
-        }
+      // 1. 尝试从 HTML 中获取图标
+      const iconData = await this.findIconFromHtml(url);
+      if (iconData) {
+        fs.writeFileSync(iconPath, iconData.buffer);
+        return iconData;
       }
 
-      // 2. 尝试直接获取 favicon.ico
-      const faviconUrls = [
-        `https://${mainDomain}/favicon.ico`,
-        `https://www.${mainDomain}/favicon.ico`
+      // 2. 尝试常见的图标路径
+      const baseUrl = new URL(url).origin;
+      const domains = [
+        baseUrl,
+        `https://www.${mainDomain}`,
+        `https://${mainDomain}`
       ];
 
-      for (const faviconUrl of faviconUrls) {
-        try {
-          const response = await axios.get(faviconUrl, {
-            ...this.axiosConfig,
-            responseType: 'arraybuffer'
-          });
+      for (const domain of domains) {
+        for (const iconPath of this.commonIconPaths) {
+          try {
+            const response = await axios.get(`${domain}${iconPath}`, {
+              ...this.axiosConfig,
+              responseType: 'arraybuffer'
+            });
 
-          if (response.status === 200 && response.data.length > 0) {
-            fs.writeFileSync(iconPath, response.data);
-            return {
-              buffer: Buffer.from(response.data),
-              contentType: response.headers['content-type'] || 'image/x-icon'
-            };
+            if (response.status === 200 && response.data.length > 0) {
+              fs.writeFileSync(iconPath, response.data);
+              return {
+                buffer: Buffer.from(response.data),
+                contentType: response.headers['content-type'] || this.getContentType(iconPath)
+              };
+            }
+          } catch (error) {
+            continue;
           }
-        } catch (error) {
-          continue;
         }
       }
 
@@ -87,28 +109,43 @@ export class IconService {
     }
   }
 
-  private async findIconUrl(url: string): Promise<string | null> {
+  private async findIconFromHtml(url: string): Promise<{ buffer: Buffer; contentType: string; } | null> {
     try {
       const baseUrl = new URL(url).origin;
       const response = await axios.get(url, this.axiosConfig);
       const html = response.data;
       const $ = cheerio.load(html);
 
-      const iconSelectors = [
-        'link[rel="icon"]',
-        'link[rel="shortcut icon"]',
-        'link[rel="apple-touch-icon"]',
-        'link[rel="apple-touch-icon-precomposed"]',
-        'link[rel="mask-icon"]',
-        'meta[property="og:image"]'
-      ];
+      // 遍历所有可能的图标选择器
+      for (const selector of this.iconSelectors) {
+        const elements = $(selector);
+        for (const element of elements.toArray()) {
+          const $element = $(element);
+          const href = $element.attr('href') ||
+                      $element.attr('content') ||
+                      $element.attr('src');
 
-      for (const selector of iconSelectors) {
-        const iconElement = $(selector).first();
-        if (iconElement.length) {
-          const href = iconElement.attr('href') || iconElement.attr('content');
           if (href) {
-            return href.startsWith('http') ? href : new URL(href, baseUrl).href;
+            try {
+              const iconUrl = href.startsWith('http') ? href : new URL(href, baseUrl).href;
+              const response = await axios.get(iconUrl, {
+                ...this.axiosConfig,
+                responseType: 'arraybuffer'
+              });
+
+              if (response.status === 200 && response.data.length > 0) {
+                const sizes = $element.attr('sizes');
+                // 优先选择较大尺寸的图标
+                if (!sizes || parseInt(sizes.split('x')[0]) >= 16) {
+                  return {
+                    buffer: Buffer.from(response.data),
+                    contentType: response.headers['content-type'] || this.getContentType(href)
+                  };
+                }
+              }
+            } catch (error) {
+              continue;
+            }
           }
         }
       }
@@ -118,5 +155,18 @@ export class IconService {
       console.log('解析HTML失败，尝试直接获取favicon.ico');
       return null;
     }
+  }
+
+  private getContentType(filename: string): string {
+    const ext = path.extname(filename).toLowerCase();
+    const contentTypes: { [key: string]: string } = {
+      '.ico': 'image/x-icon',
+      '.png': 'image/png',
+      '.svg': 'image/svg+xml',
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.gif': 'image/gif'
+    };
+    return contentTypes[ext] || 'image/x-icon';
   }
 }
