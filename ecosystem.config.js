@@ -2,7 +2,7 @@ module.exports = {
   apps: [
     {
       name: 'website-icon-service',
-      script: './dist/app.js',
+      script: 'app.js',
       instances: 1, // 设置为1表示单实例运行
       exec_mode: 'fork', // 使用 fork 模式（单实例模式）
       env: {
