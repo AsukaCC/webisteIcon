@@ -20,11 +20,13 @@ export function parseUrl(url: string): {
     // 提取顶级域名
     const parts = hostname.split('.');
 
+    // 获取最后两部分
+    const lastTwoParts = parts.slice(-2).join('.');
+
     // 处理特殊情况，如 co.uk, com.cn 等
     const specialTlds = ['co.uk', 'com.cn', 'com.hk', 'co.jp', 'com.tw'];
-    const fullDomain = parts.slice(-2).join('.');
 
-    if (parts.length >= 3 && specialTlds.includes(fullDomain)) {
+    if (specialTlds.includes(lastTwoParts)) {
       // 对于特殊的二级顶级域名，取最后三部分
       return {
         hostname,
@@ -32,17 +34,10 @@ export function parseUrl(url: string): {
       };
     }
 
-    // 标准情况：取最后两部分作为主域名
-    let mainDomain = parts.slice(-2).join('.');
-
-    // 如果域名部分少于2部分，直接使用整个域名
-    if (parts.length < 2) {
-      mainDomain = hostname;
-    }
-
+    // 标准情况：只取最后两部分作为主域名
     return {
       hostname,
-      mainDomain
+      mainDomain: lastTwoParts
     };
   } catch (error) {
     // 如果 URL 解析失败，尝试作为纯域名处理
@@ -51,10 +46,12 @@ export function parseUrl(url: string): {
       const cleanUrl = url.replace(/^[^:]+:\/\//, '').split(/[/?#]/)[0];
       const parts = cleanUrl.split('.');
 
+      // 始终取最后两部分
       if (parts.length >= 2) {
+        const lastTwoParts = parts.slice(-2).join('.');
         return {
           hostname: cleanUrl,
-          mainDomain: parts.slice(-2).join('.')
+          mainDomain: lastTwoParts
         };
       }
 

@@ -5,7 +5,7 @@ import { parseUrl } from '../utils/urlParser';
 const router = Router();
 const iconService = new IconService();
 
-router.get('/websiteIcon', async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const { url } = req.query;
 
@@ -14,15 +14,16 @@ router.get('/websiteIcon', async (req, res) => {
     }
 
     const { mainDomain } = parseUrl(url);
+    console.log('正在获取图标:', { url, mainDomain });
+
     const { buffer, contentType } = await iconService.getIcon(url, mainDomain);
+    console.log('获取图标成功:', { contentType, size: buffer.length });
 
-    // 设置响应头
     res.setHeader('Content-Type', contentType);
-    res.setHeader('Cache-Control', 'public, max-age=86400'); // 缓存24小时
-
-    // 直接返回图片数据
+    res.setHeader('Cache-Control', 'public, max-age=86400');
     res.send(buffer);
   } catch (error: unknown) {
+    console.error('获取图标失败:', error);
     if (error instanceof Error) {
       res.status(500).json({
         success: false,

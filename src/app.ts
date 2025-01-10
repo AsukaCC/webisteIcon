@@ -41,7 +41,7 @@ const logSting = `
 app.use('/api/websiteIcon', iconRouter);
 
 app.get('/', (req: Request, res: Response) => {
-  res.send(`<div>${logSting}</div>`);
+  res.send(`<div style="width: 80%;height: 100%;" >${logSting}</div>`);
 });
 
 app.listen(port, () => {

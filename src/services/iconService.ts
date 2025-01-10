@@ -5,6 +5,12 @@ import * as cheerio from 'cheerio';
 
 export class IconService {
   private readonly websiteDir: string;
+  private readonly axiosConfig = {
+    timeout: 5000,
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    }
+  };
 
   constructor() {
     this.websiteDir = path.join(process.cwd(), 'website');
@@ -28,24 +34,48 @@ export class IconService {
         };
       }
 
-      // 尝试获取图标
+      // 1. 首先尝试从 HTML 中获取
       const iconUrl = await this.findIconUrl(url);
-
       if (iconUrl) {
-        const response = await axios.get(iconUrl, {
-          responseType: 'arraybuffer'
-        });
+        try {
+          const response = await axios.get(iconUrl, {
+            ...this.axiosConfig,
+            responseType: 'arraybuffer'
+          });
 
-        // 获取内容类型
-        const contentType = response.headers['content-type'] || 'image/x-icon';
+          fs.writeFileSync(iconPath, response.data);
+          return {
+            buffer: Buffer.from(response.data),
+            contentType: response.headers['content-type'] || 'image/x-icon'
+          };
+        } catch (error) {
+          console.log('从HTML获取图标失败，尝试其他方式');
+        }
+      }
 
-        // 保存到缓存
-        fs.writeFileSync(iconPath, response.data);
+      // 2. 尝试直接获取 favicon.ico
+      const faviconUrls = [
+        `https://${mainDomain}/favicon.ico`,
+        `https://www.${mainDomain}/favicon.ico`
+      ];
 
-        return {
-          buffer: Buffer.from(response.data),
-          contentType
-        };
+      for (const faviconUrl of faviconUrls) {
+        try {
+          const response = await axios.get(faviconUrl, {
+            ...this.axiosConfig,
+            responseType: 'arraybuffer'
+          });
+
+          if (response.status === 200 && response.data.length > 0) {
+            fs.writeFileSync(iconPath, response.data);
+            return {
+              buffer: Buffer.from(response.data),
+              contentType: response.headers['content-type'] || 'image/x-icon'
+            };
+          }
+        } catch (error) {
+          continue;
+        }
       }
 
       throw new Error('未找到图标');
@@ -60,39 +90,32 @@ export class IconService {
   private async findIconUrl(url: string): Promise<string | null> {
     try {
       const baseUrl = new URL(url).origin;
-
-      // 1. 首先尝试获取页面 HTML
-      const response = await axios.get(url);
+      const response = await axios.get(url, this.axiosConfig);
       const html = response.data;
       const $ = cheerio.load(html);
 
-      // 2. 查找 link 标签中的图标
       const iconSelectors = [
         'link[rel="icon"]',
         'link[rel="shortcut icon"]',
         'link[rel="apple-touch-icon"]',
-        'link[rel="apple-touch-icon-precomposed"]'
+        'link[rel="apple-touch-icon-precomposed"]',
+        'link[rel="mask-icon"]',
+        'meta[property="og:image"]'
       ];
 
       for (const selector of iconSelectors) {
         const iconElement = $(selector).first();
         if (iconElement.length) {
-          const href = iconElement.attr('href');
+          const href = iconElement.attr('href') || iconElement.attr('content');
           if (href) {
             return href.startsWith('http') ? href : new URL(href, baseUrl).href;
           }
         }
       }
 
-      // 3. 如果没找到，尝试默认的 favicon.ico 位置
-      const faviconUrl = `${baseUrl}/favicon.ico`;
-      const faviconResponse = await axios.head(faviconUrl);
-      if (faviconResponse.status === 200) {
-        return faviconUrl;
-      }
-
       return null;
     } catch (error) {
+      console.log('解析HTML失败，尝试直接获取favicon.ico');
       return null;
     }
   }
