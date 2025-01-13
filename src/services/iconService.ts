@@ -32,13 +32,9 @@ export class IconService {
     maxRedirects: 5,
   };
 
-  async getIcon(url: string, mainDomain: string): Promise<IconResult> {
+  async getIcon(mainDomain: string): Promise<IconResult> {
     try {
-      url = url.replace(/^(https?:\/\/)+/, ''); // 去除已有的 http 或 https
-      console.log('\n=== 开始获取图标 ===');
-      console.log('URL:', url);
-
-      const iconLinks = await this.findIconLinks(url);
+      const iconLinks = await this.findIconLinks(mainDomain);
 
       if (iconLinks.length > 0) {
         const firstIcon = iconLinks[0];

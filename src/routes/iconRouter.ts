@@ -10,16 +10,16 @@ router.get('/favicon', async (req, res) => {
   // 参数验证
   if (!url || typeof url !== 'string') {
     return res.status(400).json({
-      code: 400,
+      status: 400,
       message: 'URL 参数必填',
       data: null,
     });
   }
   const cleanedUrl = url.replace(/^(https?:\/\/)?(www\.)?/, '');
-  const mainDomain = `https://${cleanedUrl}`; ;
+  const mainDomain = `https://${cleanedUrl}`;
 
   try {
-    const result = await iconService.getIcon(url, mainDomain);
+    const result = await iconService.getIcon(mainDomain);
 
     // 设置缓存控制
     res.setHeader('Cache-Control', 'public, max-age=86400');
@@ -33,7 +33,7 @@ router.get('/favicon', async (req, res) => {
 
     // API 调用返回 JSON
     return res.json({
-      code: 200,
+      status: 200,
       message: '获取成功',
       data: result.iconUrl, // 返回找到的图标 URL
     });
@@ -43,7 +43,7 @@ router.get('/favicon', async (req, res) => {
       // 构造默认图标URL
       const defaultIconUrl = new URL('/favicon.ico', mainDomain).href;
       return res.json({
-        code: 204,
+        status: 204,
         message: '获取失败',
         data: defaultIconUrl, // 返回默认图标 URL
       });
@@ -52,7 +52,7 @@ router.get('/favicon', async (req, res) => {
     // 其他错误情况
     console.error('Icon retrieval failed:', error);
     return res.status(500).json({
-      code: 500,
+      status: 500,
       message: '服务器错误',
       data: null,
     });
