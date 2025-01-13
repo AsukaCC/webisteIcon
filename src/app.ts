@@ -38,7 +38,7 @@ const logSting = `
 `;
 
 // 图标路由
-app.use('/api/websiteIcon', iconRouter);
+app.use('/api', iconRouter);
 
 app.get('/', (req: Request, res: Response) => {
   res.send(`<div style="width: 80%;height: 100%;" >${logSting}</div>`);
