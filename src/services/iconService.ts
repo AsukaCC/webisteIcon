@@ -17,7 +17,9 @@ export class IconService {
     'link[rel="apple-touch-icon"]',
     'link[rel="icon"]',
     'link[rel="shortcut icon"]',
+    'link[rel="mask-icon"]',
     'meta[property="og:image"]',
+    'meta[property="twitter:image"]',
   ];
 
   private readonly axiosConfig = {

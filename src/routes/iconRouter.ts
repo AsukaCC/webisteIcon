@@ -15,7 +15,8 @@ router.get('/favicon', async (req, res) => {
       data: null,
     });
   }
-  const mainDomain = url.replace(/^(https?:\/\/)?(www\.)?/, '');
+  const cleanedUrl = url.replace(/^(https?:\/\/)?(www\.)?/, '');
+  const mainDomain = `https://${cleanedUrl}`; ;
 
   try {
     const result = await iconService.getIcon(url, mainDomain);
