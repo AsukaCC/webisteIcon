@@ -34,10 +34,7 @@ export class IconService {
     maxRedirects: 5,
   };
 
-  async getIcon(
-    cleanedUrl: string,
-    mainDomain: string
-  ): Promise<IconResult | null> {
+  async getIcon(cleanedUrl: string, mainDomain: string): Promise<IconResult> {
     try {
       // 前置缓存查询
       const cachedFilePath = this.getCachedIconPath(cleanedUrl);
@@ -54,39 +51,29 @@ export class IconService {
 
       if (iconLinks.length > 0) {
         const firstIcon = iconLinks[0];
-        try {
-          const response = await axios.get(firstIcon.href, {
-            ...this.axiosConfig,
-            responseType: 'arraybuffer',
-          });
-
-          console.log('✓ 成功获取图标:', firstIcon.href);
-
-          const iconBuffer = Buffer.from(response.data);
-          const contentType =
-            response.headers['content-type'] || 'image/x-icon';
-
-          this.saveIconToFile(cleanedUrl, iconBuffer, contentType);
-
-          return {
-            buffer: iconBuffer,
-            contentType,
-            iconUrl: firstIcon.href,
-          };
-        } catch (error) {
-          console.log('✗ 无法获取首选图标');
-          return null; // 图标获取失败，返回 null
-        }
-      }
-
-      console.log('未在页面中找到图标链接或无法获取图标，使用默认路径');
-      const defaultIconUrl = new URL('/favicon.ico', mainDomain).href;
-      try {
-        const response = await axios.get(defaultIconUrl, {
+        const response = await axios.get(firstIcon.href, {
           ...this.axiosConfig,
           responseType: 'arraybuffer',
         });
 
+        console.log('✓ 成功获取图标:', firstIcon.href);
+        const iconBuffer = Buffer.from(response.data);
+        const contentType = response.headers['content-type'] || 'image/x-icon';
+        this.saveIconToFile(cleanedUrl, iconBuffer, contentType);
+
+        return {
+          buffer: iconBuffer,
+          contentType,
+          iconUrl: firstIcon.href,
+        };
+      } else {
+        console.log('未在页面中找到图标链接或无法获取图标，使用默认路径');
+
+        const defaultIconUrl = new URL('/favicon.ico', mainDomain).href;
+        const response = await axios.get(defaultIconUrl, {
+          ...this.axiosConfig,
+          responseType: 'arraybuffer',
+        });
         const iconBuffer = Buffer.from(response.data);
         const contentType = response.headers['content-type'] || 'image/x-icon';
 
@@ -97,16 +84,21 @@ export class IconService {
           contentType,
           iconUrl: defaultIconUrl,
         };
-      } catch (error) {
-        console.log('默认路径也无法获取图标');
-        return null; // 默认路径图标获取失败，返回 null
       }
     } catch (error) {
       console.error(
         '获取图标失败:',
         error instanceof Error ? error.message : '未知错误'
       );
-      return null; // 出现任何错误时，返回 null
+      // 使用本地默认icon
+      const defaultIconPath = path.join('website', 'default.jpg');
+      const defaultIconBuffer = fs.readFileSync(defaultIconPath);
+
+      return {
+        buffer: defaultIconBuffer,
+        contentType: 'image/jpeg',
+        iconUrl: defaultIconPath,
+      };
     }
   }
 

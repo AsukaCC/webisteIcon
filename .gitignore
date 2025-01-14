@@ -1,4 +1,5 @@
 /node_modules/*
 /website/*
+!/website/default.jpg
 /dist/*
 /logs/*

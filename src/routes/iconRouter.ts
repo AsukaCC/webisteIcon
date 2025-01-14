@@ -43,7 +43,11 @@ router.get('/favicon', async (req, res) => {
     console.error('图标获取失败:', error);
 
     // 如果是使用默认图标的情况
+
+    // 如果是使用默认图标的情况
     if (error instanceof Error && error.message === 'USE_DEFAULT_ICON') {
+
+
       return res.json({
         status: 204,
         message: '获取失败，使用默认图标',
