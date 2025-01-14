@@ -7,7 +7,7 @@
 
 ## 请求方式
 - **方法**: `GET`
-- **URL**: `https://api.jiangcheng.site/api/websiteIcon`
+- **URL**: `https://api.jiangcheng.site/api/favicon`
 
 ---
 
@@ -19,5 +19,9 @@
 
 ### 示例
 #### 完整请求
-```http
-GET https://api.jiangcheng.site/api/websiteIcon?url=github.com
+
+[https://api.jiangcheng.site/api/favicon?url=github.com](https://api.jiangcheng.site/api/favicon?url=github.com)
+
+
+### Tip
+需要科学上网访问的网站，部署的服务器也需要配置代理或者海外服务器
