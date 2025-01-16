@@ -13,6 +13,8 @@ interface IconResult {
 interface IconLink {
   selector: string;
   href: string;
+  sizes?: string;
+  type?: string;
 }
 
 interface IconCache {
@@ -24,10 +26,22 @@ interface IconCache {
 export class IconService {
   private readonly CACHE_EXPIRY_HOURS = 48;
   private readonly iconSelectors = [
+    'link[rel="icon"][sizes="192x192"]',
+    'link[rel="icon"][sizes="128x128"]',
+    'link[rel="apple-touch-icon"][sizes="180x180"]',
+    'link[rel="apple-touch-icon"][sizes="152x152"]',
+    'link[rel="apple-touch-icon"][sizes="144x144"]',
+    'link[rel="icon"][sizes="96x96"]',
+    'link[rel="apple-touch-icon"][sizes="120x120"]',
+    'link[rel="apple-touch-icon"][sizes="114x114"]',
+    'link[rel="apple-touch-icon"][sizes="76x76"]',
+    'link[rel="apple-touch-icon"][sizes="72x72"]',
     'link[rel="apple-touch-icon"]',
-    'link[rel="icon"]',
-    'link[rel="shortcut icon"]',
+    'link[rel="icon"][type="image/png"]',
+    'link[rel="icon"][type="image/svg+xml"]',
     'link[rel="mask-icon"]',
+    'link[rel="shortcut icon"]',
+    'link[rel="icon"]',
     'meta[property="og:image"]',
     'meta[property="twitter:image"]',
   ];
@@ -100,7 +114,7 @@ export class IconService {
   private async tryGoogleFavicon(
     mainDomain: string
   ): Promise<IconResult | null> {
-    const googleFaviconUrl = `https://www.google.com/s2/favicons?sz=64&domain_url=${encodeURIComponent(
+    const googleFaviconUrl = `https://www.google.com/s2/favicons?sz=128&domain_url=${encodeURIComponent(
       mainDomain
     )}`;
     console.log(`尝试使用 Google favicon 服务: ${googleFaviconUrl}`);
@@ -143,11 +157,15 @@ export class IconService {
           const $el = $(el);
           const href = $el.attr('href') || $el.attr('content');
           if (href) {
+            const sizes = $el.attr('sizes') || '';
+            const type = $el.attr('type') || '';
             links.push({
               selector,
               href: href.startsWith('http')
                 ? href
                 : new URL(href, baseUrl).href,
+              sizes,
+              type,
             });
           }
         });
@@ -155,8 +173,18 @@ export class IconService {
 
       if (links.length > 0) {
         console.log('\n找到的图标链接:');
+        links.sort((a, b) => {
+          const aSize = a.sizes ? parseInt(a.sizes.split('x')[0]) || 0 : 0;
+          const bSize = b.sizes ? parseInt(b.sizes.split('x')[0]) || 0 : 0;
+          return bSize - aSize;
+        });
+
         for (const icon of links) {
-          console.log(`尝试获取图标: ${icon.href}`);
+          console.log(
+            `尝试获取图标: ${icon.href} (尺寸: ${icon.sizes || '未知'}, 类型: ${
+              icon.type || '未知'
+            })`
+          );
           const result = await this.fetchIcon(icon.href);
           if (result) {
             console.log('✓ 成功获取图标');
@@ -200,11 +228,11 @@ export class IconService {
 
       console.log(`尝试获取网站图标: ${mainDomain}`);
 
-      // 按优先级尝试不同的获取方式
+      // 调整获取优先级：先尝试解析页面获取高质量图标，然后是 Google 的服务，最后是 favicon.ico
       const result =
-        (await this.tryDirectFavicon(mainDomain)) ||
         (await this.tryPageIcons(mainDomain)) ||
         (await this.tryGoogleFavicon(mainDomain)) ||
+        (await this.tryDirectFavicon(mainDomain)) ||
         this.getDefaultIcon();
 
       // 如果不是默认图标，保存到缓存
